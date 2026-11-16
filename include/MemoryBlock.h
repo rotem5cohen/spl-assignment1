@@ -12,12 +12,17 @@ protected:
     int* data;
 public:
     MemoryBlock(size_t size);
+    virtual ~MemoryBlock();
     virtual IdleAction onLastRelease() const = 0;
     virtual MemoryBlock* clone() const = 0;
     int readFromBlock(std::size_t offset) const;
     void writeToBlock(std::size_t offset, int value);
     void acquire();
     IdleAction release();
+    MemoryBlock(const MemoryBlock& other);
+    MemoryBlock& operator=(const MemoryBlock& other);
+    MemoryBlock(MemoryBlock&& other) noexcept;
+    MemoryBlock& operator=(MemoryBlock&& other) noexcept;
 };
 
 class KVBlock: public MemoryBlock{
