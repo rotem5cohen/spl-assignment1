@@ -121,6 +121,7 @@ void GPU::writeToBlock(std::size_t blockId,
 
 void GPU::acquire(std::size_t slot) {
     memory[slot]->acquire();
+    cacheHits++;
 }
 
 void GPU::release(std::size_t slot) {
@@ -276,4 +277,151 @@ void GPU::copyMemoryFromOtherGPU(
 
         protectedSlots[slot] = true;
     }
+}
+
+GPU::~GPU() {
+    for (std::size_t i = 0; i < blocksNum; i++) {
+        delete memory[i];
+    }
+}
+
+GPU::GPU(const GPU& other)
+    : blocksNum(other.blocksNum),
+      blockSize(other.blockSize),
+      memory(other.blocksNum, nullptr),
+      totalReserved(other.totalReserved),
+      reservations(other.reservations),
+      cacheHits(other.cacheHits),
+      evictions(other.evictions),
+      modelIds(other.modelIds),
+      prefixKeys(other.prefixKeys) {
+
+    try {
+        for (std::size_t i = 0; i < blocksNum; i++) {
+            if (other.memory[i] != nullptr) {
+
+                memory[i] = other.memory[i]->clone();
+
+                for (int j = 0;
+                     j < other.memory[i]->getRefCount();
+                     j++) {
+
+                    memory[i]->acquire();
+                }
+            }
+        }
+    } catch (...) {
+        for (MemoryBlock* block : memory) {
+            delete block;
+        }
+        throw;
+    }
+}
+
+GPU& GPU::operator=(const GPU& other) {
+    if (this == &other) {
+        return *this;
+    }
+
+    for (std::size_t i = 0; i < blocksNum; i++) {
+        delete memory[i];
+        memory[i] = nullptr;
+    }
+
+    memory.assign(other.blocksNum, nullptr);
+
+    blocksNum = other.blocksNum;
+    blockSize = other.blockSize;
+    totalReserved = other.totalReserved;
+    reservations = other.reservations;
+    cacheHits = other.cacheHits;
+    evictions = other.evictions;
+    modelIds = other.modelIds;
+    prefixKeys = other.prefixKeys;
+
+    for (std::size_t i = 0; i < blocksNum; i++) {
+        if (other.memory[i] != nullptr) {
+            memory[i] = other.memory[i]->clone();
+
+            for (int j = 0;
+                 j < other.memory[i]->getRefCount();
+                 j++) {
+
+                memory[i]->acquire();
+            }
+        }
+    }
+
+    return *this;
+}
+
+GPU::GPU(GPU&& other) noexcept
+    : blocksNum(other.blocksNum),
+      blockSize(other.blockSize),
+      memory(std::move(other.memory)),
+      totalReserved(other.totalReserved),
+      reservations(std::move(other.reservations)),
+      cacheHits(other.cacheHits),
+      evictions(other.evictions),
+      modelIds(std::move(other.modelIds)),
+      prefixKeys(std::move(other.prefixKeys)) {
+
+    other.blocksNum = 0;
+    other.blockSize = 0;
+    other.totalReserved = 0;
+    other.cacheHits = 0;
+    other.evictions = 0;
+
+    other.memory.clear();
+    other.reservations.clear();
+    other.modelIds.clear();
+    other.prefixKeys.clear();
+}
+
+GPU& GPU::operator=(GPU&& other) noexcept {
+    if (this == &other) {
+        return *this;
+    }
+
+    for (std::size_t i = 0; i < blocksNum; i++) {
+        delete memory[i];
+    }
+
+    blocksNum = other.blocksNum;
+    blockSize = other.blockSize;
+    memory = std::move(other.memory);
+    totalReserved = other.totalReserved;
+    reservations = std::move(other.reservations);
+    cacheHits = other.cacheHits;
+    evictions = other.evictions;
+    modelIds = std::move(other.modelIds);
+    prefixKeys = std::move(other.prefixKeys);
+
+    other.blocksNum = 0;
+    other.blockSize = 0;
+    other.totalReserved = 0;
+    other.cacheHits = 0;
+    other.evictions = 0;
+
+    other.memory.clear();
+    other.reservations.clear();
+    other.modelIds.clear();
+    other.prefixKeys.clear();
+
+    return *this;
+}
+std::size_t GPU::getBlocksNum() const {
+    return blocksNum;
+}
+
+std::size_t GPU::getBlockSize() const {
+    return blockSize;
+}
+
+std::size_t GPU::getCacheHits() const {
+    return cacheHits;
+}
+
+std::size_t GPU::getEvictions() const {
+    return evictions;
 }
