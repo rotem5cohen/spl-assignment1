@@ -23,6 +23,7 @@ public:
     MemoryBlock& operator=(const MemoryBlock& other);
     MemoryBlock(MemoryBlock&& other) noexcept;
     MemoryBlock& operator=(MemoryBlock&& other) noexcept;
+    int getRefCount() const;
 };
 
 class KVBlock: public MemoryBlock{

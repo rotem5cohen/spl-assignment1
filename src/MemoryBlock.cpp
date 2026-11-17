@@ -90,6 +90,10 @@ IdleAction MemoryBlock::release() {
     return IdleAction::KeepCached;
 }
 
+int MemoryBlock::getRefCount() const {
+    return refCount;
+}
+
 KVBlock::KVBlock(size_t size)
     : MemoryBlock(size) {
 }

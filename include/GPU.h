@@ -4,13 +4,19 @@
 #include <string>
 #include <cstddef>
 #include <vector>
+#include <unordered_map>
+
+class MemoryBlock;
+class Request;
+class GenerativeRequest;
+class EmbeddingRequest;
+
 
 struct PrefixMatch {
     std::size_t matchedTokens;
     std::vector<std::size_t> blockIds;
 };
 
-class MemoryBlock;
 
 class GPU{
 public:
@@ -34,6 +40,12 @@ private:
     std::size_t blocksNum;
     std::size_t blockSize;
     std::vector<MemoryBlock*> memory;
+    std::size_t totalReserved;
+    std::unordered_map<int, std::size_t> reservations;
+    std::size_t cacheHits;
+    std::size_t evictions;
+    std::vector<std::string> modelIds;
+    std::vector<std::vector<std::string>> prefixKeys;
 };
 
 #endif
