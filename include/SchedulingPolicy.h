@@ -1,5 +1,6 @@
 #ifndef SCHEDULING_POLICY_H_
 #define SCHEDULING_POLICY_H
+#include <vector>
 
 class SchedulingPolicy {
 public:

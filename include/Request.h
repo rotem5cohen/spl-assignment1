@@ -31,20 +31,48 @@ public:
     int getId() const;
     const Model& getModel() const;
     int getAdmissionCycle() const;
+    virtual ~Request();
 };
 
 class GenerativeRequest: public Request{
 private:
     std::string scriptedOutput;
     std::size_t maxOutputTokens;
+    std::vector<std::string> outputTokens;
+    std::size_t processedTokens;
+    std::size_t generatedTokens;
 public:
     GenerativeRequest(int id, const Model& model, int admissionCycle, std::string prompt, std::string scriptedOutput,
     std::size_t maxOutputTokens);
+    bool finished() const override;
+    std::size_t getMaxNeededMemory() const override;
+    std::size_t getNeededMemory(const GPU& gpu) const override;
+    std::vector<std::string> getCacheableTokens() const override;
+    void reserveMemory(GPU& gpu) override;
+    std::size_t getNeedToUnreserve() const override;
+    void act(GPU& gpu) override;
+    void allocateOneBlock(GPU& gpu, std::size_t slot) const override;
+    std::string getOutput() const override;
+    Request* clone(const Model& model) const override;
+
 };
 
 class EmbeddingRequest: public Request{
+private:
+    std::size_t processedTokens;
+    std::vector<int> output;
 public:
     EmbeddingRequest(int id, const Model& model, int admissionCycle, std::string prompt);
+    bool finished() const override;
+    std::size_t getMaxNeededMemory() const override;
+    std::size_t getNeededMemory(const GPU& gpu) const override;
+    std::vector<std::string> getCacheableTokens() const override;
+    void allocateOneBlock(GPU& gpu, std::size_t slot) const override;
+    void reserveMemory(GPU& gpu) override;
+    std::size_t getNeedToUnreserve() const override;
+    void act(GPU& gpu) override;
+    std::string getOutput() const override;
+    Request* clone(const Model& model) const override;
 };
 
 #endif
