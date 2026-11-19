@@ -4,6 +4,12 @@
 
 #include "Server.h"
 
+#include "Model.h"
+#include "SchedulingPolicy.h"
+#include <iostream>
+#include <algorithm>
+#include <utility>
+
 using namespace std;
 using json = nlohmann::json;
 
@@ -56,3 +62,307 @@ Config Server::readConfig(string configPath) const{
 
     return Config{blockSize, gpuConfigs, modelConfigs, requestConfigs, policy};
 }
+
+Server::Server(std::string configPath)
+    : gpus(),
+      models(),
+      nonSubmittedRequests(),
+      waitingRequests(),
+      activeRequests(),
+      policy(nullptr),
+      cycle(0),
+      activeGpuIndices() {
+
+    Config config = readConfig(configPath);
+
+    for (const GPUConfig& gpuConfig : config.gpus) {
+
+        std::size_t blocksNum =
+            gpuConfig.memoryBytes / config.blockSize;
+
+        gpus.emplace_back(blocksNum, config.blockSize);
+    }
+
+    for (const ModelConfig& modelConfig : config.models) {
+
+        models.push_back(
+            new Model(
+                modelConfig.id,
+                modelConfig.embeddingSize
+            )
+        );
+    }
+
+    for (const RequestConfig& req : config.requests) {
+
+    Model* model = findModel(req.modelId);
+
+      if (req.type == RequestType::Generative) {
+
+        nonSubmittedRequests.push_back(
+            new GenerativeRequest(
+                req.id,
+                *model,
+                req.admissionCycle,
+                req.prompt,
+                req.scriptedOutput,
+                req.maxOutputTokens
+            )
+        );
+
+      } else {
+
+        nonSubmittedRequests.push_back(
+            new EmbeddingRequest(
+                req.id,
+                *model,
+                req.admissionCycle,
+                req.prompt
+            )
+        );
+      }
+    }
+
+    if (config.policy == "arrivalOrder") {
+    policy = new ArrivalOrderPolicy();
+
+    } else if (config.policy == "shortestJob") {
+        policy = new ShortestJobPolicy();
+
+    } else if (config.policy == "longestPrefix") {
+        policy = new LongestPrefixPolicy();
+
+    } else {
+        throw std::invalid_argument("Invalid scheduling policy");
+    }
+}
+
+Model* Server::findModel(const std::string& modelId) const {
+    for (Model* model : models) {
+        if (model->getModelId() == modelId) {
+            return model;
+        }
+    }
+
+    throw std::invalid_argument("Model not found");
+}
+
+void Server::clear() {
+
+    for (Request* request : nonSubmittedRequests) {
+        delete request;
+    }
+
+    for (Request* request : waitingRequests) {
+        delete request;
+    }
+
+    for (Request* request : activeRequests) {
+        delete request;
+    }
+
+    for (Model* model : models) {
+        delete model;
+    }
+
+    delete policy;
+    policy = nullptr;
+
+    nonSubmittedRequests.clear();
+    waitingRequests.clear();
+    activeRequests.clear();
+    activeGpuIndices.clear();
+    models.clear();
+    gpus.clear();
+
+    cycle = 0;
+}
+
+Server::~Server() {
+    clear();
+}
+
+Server::Server(const Server& other)
+    : gpus(other.gpus),
+      models(),
+      nonSubmittedRequests(),
+      waitingRequests(),
+      activeRequests(),
+      policy(nullptr),
+      cycle(other.cycle),
+      activeGpuIndices(other.activeGpuIndices) {
+
+    try {
+        models.reserve(other.models.size());
+
+        for (Model* model : other.models) {
+            models.push_back(new Model(*model));
+        }
+
+        nonSubmittedRequests.reserve(
+            other.nonSubmittedRequests.size()
+        );
+
+        for (Request* request : other.nonSubmittedRequests) {
+            nonSubmittedRequests.push_back(
+                request->clone(
+                    *findModel(request->getModel().getModelId())
+                )
+            );
+        }
+
+        waitingRequests.reserve(
+            other.waitingRequests.size()
+        );
+
+        for (Request* request : other.waitingRequests) {
+            waitingRequests.push_back(
+                request->clone(
+                    *findModel(request->getModel().getModelId())
+                )
+            );
+        }
+
+        activeRequests.reserve(
+            other.activeRequests.size()
+        );
+
+        for (Request* request : other.activeRequests) {
+            activeRequests.push_back(
+                request->clone(
+                    *findModel(request->getModel().getModelId())
+                )
+            );
+        }
+
+        if (other.policy != nullptr) {
+            policy = other.policy->clone();
+        }
+
+    } catch (...) {
+        clear();
+        throw;
+    }
+}
+
+Server& Server::operator=(const Server& other) {
+
+    if (this == &other) {
+        return *this;
+    }
+
+    clear();
+
+    try {
+        gpus = other.gpus;
+        cycle = other.cycle;
+        activeGpuIndices = other.activeGpuIndices;
+
+        models.reserve(other.models.size());
+
+        for (Model* model : other.models) {
+            models.push_back(new Model(*model));
+        }
+
+        nonSubmittedRequests.reserve(
+            other.nonSubmittedRequests.size()
+        );
+
+        for (Request* request : other.nonSubmittedRequests) {
+            nonSubmittedRequests.push_back(
+                request->clone(
+                    *findModel(request->getModel().getModelId())
+                )
+            );
+        }
+
+        waitingRequests.reserve(
+            other.waitingRequests.size()
+        );
+
+        for (Request* request : other.waitingRequests) {
+            waitingRequests.push_back(
+                request->clone(
+                    *findModel(request->getModel().getModelId())
+                )
+            );
+        }
+
+        activeRequests.reserve(
+            other.activeRequests.size()
+        );
+
+        for (Request* request : other.activeRequests) {
+            activeRequests.push_back(
+                request->clone(
+                    *findModel(request->getModel().getModelId())
+                )
+            );
+        }
+
+        if (other.policy != nullptr) {
+            policy = other.policy->clone();
+        }
+
+    } catch (...) {
+        clear();
+        throw;
+    }
+
+}
+
+Server::Server(Server&& other) noexcept
+    : gpus(std::move(other.gpus)),
+      models(std::move(other.models)),
+      nonSubmittedRequests(std::move(other.nonSubmittedRequests)),
+      waitingRequests(std::move(other.waitingRequests)),
+      activeRequests(std::move(other.activeRequests)),
+      policy(other.policy),
+      cycle(other.cycle),
+      activeGpuIndices(std::move(other.activeGpuIndices)) {
+
+    other.gpus.clear();
+    other.models.clear();
+    other.nonSubmittedRequests.clear();
+    other.waitingRequests.clear();
+    other.activeRequests.clear();
+    other.activeGpuIndices.clear();
+
+    other.policy = nullptr;
+    other.cycle = 0;
+}
+
+Server& Server::operator=(Server&& other) noexcept {
+
+    if (this == &other) {
+        return *this;
+    }
+
+    clear();
+
+    gpus = std::move(other.gpus);
+    models = std::move(other.models);
+
+    nonSubmittedRequests =
+        std::move(other.nonSubmittedRequests);
+
+    waitingRequests = std::move(other.waitingRequests);
+    activeRequests = std::move(other.activeRequests);
+    activeGpuIndices = std::move(other.activeGpuIndices);
+
+    policy = other.policy;
+    cycle = other.cycle;
+
+    other.gpus.clear();
+    other.models.clear();
+    other.nonSubmittedRequests.clear();
+    other.waitingRequests.clear();
+    other.activeRequests.clear();
+    other.activeGpuIndices.clear();
+
+    other.policy = nullptr;
+    other.cycle = 0;
+
+    return *this;
+}
+

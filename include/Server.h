@@ -48,10 +48,19 @@ private:
     std::vector<Request*> waitingRequests;
     std::vector<Request*> activeRequests;
     SchedulingPolicy* policy;
+    int cycle;
+    std::vector<std::size_t> activeGpuIndices;
+    Model* findModel(const std::string& modelId) const;
+    void clear();
 public:
     Server(std::string configPath);
     bool step();
     void serve();
+    ~Server();
+    Server(const Server& other);
+    Server& operator=(const Server& other);
+    Server(Server&& other) noexcept;
+    Server& operator=(Server&& other) noexcept;
 };
 
 #endif
