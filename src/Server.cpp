@@ -366,3 +366,230 @@ Server& Server::operator=(Server&& other) noexcept {
     return *this;
 }
 
+
+bool Server::step() {
+
+    if (nonSubmittedRequests.empty() &&
+        waitingRequests.empty() &&
+        activeRequests.empty()) {
+        return false;
+    }
+
+    auto it = nonSubmittedRequests.begin();
+
+    while (it != nonSubmittedRequests.end()) {
+
+        Request* request = *it;
+
+        if (request->getAdmissionCycle() == cycle) {
+
+            bool canEverFit = false;
+
+            for (const GPU& gpu : gpus) {
+
+                std::size_t neededBlocks =
+                    gpu.getBlocksForMemory(
+                        request->getMaxNeededMemory()
+                    );
+
+                if (neededBlocks <= gpu.getBlocksNum()) {
+                    canEverFit = true;
+                    break;
+                }
+            }
+
+            if (canEverFit) {
+                waitingRequests.push_back(request);
+            } else {
+                std::cout << "rejected " << request->getId()
+                          << " cycle=" << cycle << std::endl;
+
+                delete request;
+            }
+
+            it = nonSubmittedRequests.erase(it);
+
+        } else {
+            ++it;
+        }
+    }
+
+    std::vector<const Request*> eligible;
+
+    for (Request* request : waitingRequests) {
+        eligible.push_back(request);
+    }
+
+    std::vector<int> order = policy->choose(eligible, gpus);
+
+    std::vector<bool> admitted(waitingRequests.size(), false);
+
+    for (int index : order) {
+
+        Request* request = waitingRequests[index];
+
+        int bestGpu = -1;
+        std::size_t bestCachedBlocks = 0;
+        std::size_t bestNeededBlocks = 0;
+
+        for (std::size_t i = 0; i < gpus.size(); i++) {
+
+            const GPU& gpu = gpus[i];
+
+            PrefixMatch match =
+                gpu.findLongestCachedPrefix(
+                    request->getModel().getModelId(),
+                    request->getModel().getEmbeddingSize(),
+                    request->getCacheableTokens()
+                );
+
+            std::size_t cachedBlocks = match.blockIds.size();
+
+            std::size_t newBlocks =
+                gpu.getBlocksForMemory(
+                    request->getNeededMemory(gpu)
+                );
+
+            std::size_t idleCachedBlocks = 0;
+
+            for (std::size_t slot : match.blockIds) {
+                if (gpu.getBlockRefCount(slot) == 0) {
+                    idleCachedBlocks++;
+                }
+            }
+
+            std::size_t neededBlocks =
+                newBlocks + idleCachedBlocks;
+
+            if (neededBlocks > gpu.availableSlots()) {
+                continue;
+            }
+
+            if (bestGpu == -1 ||
+                cachedBlocks > bestCachedBlocks ||
+                (cachedBlocks == bestCachedBlocks &&
+                 neededBlocks < bestNeededBlocks)) {
+
+                bestGpu = static_cast<int>(i);
+                bestCachedBlocks = cachedBlocks;
+                bestNeededBlocks = neededBlocks;
+            }
+        }
+
+        if (bestGpu == -1) {
+            continue;
+        }
+
+        GPU& chosenGpu = gpus[bestGpu];
+
+        PrefixMatch longestMatch =
+            chosenGpu.findLongestCachedPrefix(
+                request->getModel().getModelId(),
+                request->getModel().getEmbeddingSize(),
+                request->getCacheableTokens()
+            );
+
+        int sourceGpu = bestGpu;
+
+        for (std::size_t i = 0; i < gpus.size(); i++) {
+
+            if (static_cast<int>(i) == bestGpu) {
+                continue;
+            }
+
+            PrefixMatch match =
+                gpus[i].findLongestCachedPrefix(
+                    request->getModel().getModelId(),
+                    request->getModel().getEmbeddingSize(),
+                    request->getCacheableTokens()
+                );
+
+            if (match.matchedTokens > longestMatch.matchedTokens ||
+                (match.matchedTokens == longestMatch.matchedTokens &&
+                 static_cast<int>(i) < sourceGpu)) {
+
+                longestMatch = match;
+                sourceGpu = static_cast<int>(i);
+            }
+        }
+
+        if (sourceGpu != bestGpu) {
+
+            chosenGpu.copyMemoryFromOtherGPU(
+                gpus[sourceGpu],
+                longestMatch.blockIds
+            );
+        }
+
+        request->reserveMemory(chosenGpu);
+
+        activeRequests.push_back(request);
+        activeGpuIndices.push_back(
+            static_cast<std::size_t>(bestGpu)
+        );
+
+        admitted[index] = true;
+    }
+
+    for (std::size_t i = waitingRequests.size(); i > 0; i--) {
+
+        if (admitted[i - 1]) {
+            waitingRequests.erase(
+                waitingRequests.begin() + (i - 1)
+            );
+        }
+    }
+
+    std::size_t i = 0;
+
+    while (i < activeRequests.size()) {
+
+        Request* request = activeRequests[i];
+        std::size_t gpuIndex = activeGpuIndices[i];
+
+        GPU& gpu = gpus[gpuIndex];
+
+        request->act(gpu);
+
+        if (request->finished()) {
+
+            std::cout << "finished " << request->getId()
+                      << " cycle=" << cycle
+                      << " gpu=" << gpuIndex
+                      << ": " << request->getOutput()
+                      << std::endl;
+
+            request->deallocateMemory(gpu);
+            delete request;
+
+            activeRequests.erase(activeRequests.begin() + i);
+            activeGpuIndices.erase(activeGpuIndices.begin() + i);
+
+        } else {
+            ++i;
+        }
+    }
+
+    cycle++;
+
+    return true;
+}
+
+void Server::serve() {
+
+    while (step()) {
+    }
+
+    std::size_t totalCacheHits = 0;
+    std::size_t totalEvictions = 0;
+
+    for (const GPU& gpu : gpus) {
+        totalCacheHits += gpu.getCacheHits();
+        totalEvictions += gpu.getEvictions();
+    }
+
+    std::cout << "summary: cycles=" << cycle
+              << " cache_hits=" << totalCacheHits
+              << " evictions=" << totalEvictions
+              << std::endl;
+}

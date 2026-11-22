@@ -425,3 +425,7 @@ std::size_t GPU::getCacheHits() const {
 std::size_t GPU::getEvictions() const {
     return evictions;
 }
+
+int GPU::getBlockRefCount(std::size_t slot) const {
+    return memory[slot]->getRefCount();
+}

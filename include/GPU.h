@@ -44,7 +44,8 @@ public:
     std::size_t getBlocksNum() const;
     std::size_t getBlockSize() const;
     std::size_t getCacheHits() const;
-    std::size_t getEvictions() const;                                    
+    std::size_t getEvictions() const;       
+    int getBlockRefCount(std::size_t slot) const;                             
 private:
     std::size_t blocksNum;
     std::size_t blockSize;
