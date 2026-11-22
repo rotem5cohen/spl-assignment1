@@ -71,39 +71,6 @@ std::vector<int> ShortestJobPolicy::choose(
     return indices;
 }
 
-std::vector<int> ShortestJobPolicy::choose(
-    const std::vector<const Request*>& eligible,
-    const std::vector<GPU>& gpus
-) const {
-
-    std::vector<int> indices;
-
-    for (std::size_t i = 0; i < eligible.size(); i++) {
-        indices.push_back(static_cast<int>(i));
-    }
-
-    std::sort(indices.begin(), indices.end(),
-        [&eligible, &gpus](int a, int b) {
-
-            std::size_t blocksA = gpus[0].getBlocksForMemory(
-                eligible[a]->getMaxNeededMemory()
-            );
-
-            std::size_t blocksB = gpus[0].getBlocksForMemory(
-                eligible[b]->getMaxNeededMemory()
-            );
-
-            if (blocksA != blocksB) {
-                return blocksA < blocksB;
-            }
-
-            return eligible[a]->getId() <
-                   eligible[b]->getId();
-        }
-    );
-
-    return indices;
-}
 
 SchedulingPolicy* ShortestJobPolicy::clone() const {
     return new ShortestJobPolicy(*this);
