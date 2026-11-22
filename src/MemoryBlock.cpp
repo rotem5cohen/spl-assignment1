@@ -42,12 +42,12 @@ MemoryBlock& MemoryBlock::operator=(const MemoryBlock& other) {
 
 MemoryBlock::MemoryBlock(MemoryBlock&& other) noexcept
     : size(other.size),
-      refCount(0),
+      refCount(other.refCount),
       data(other.data) {
 
-    other.data = nullptr;
     other.size = 0;
     other.refCount = 0;
+    other.data = nullptr;
 }
 
 MemoryBlock& MemoryBlock::operator=(MemoryBlock&& other) noexcept {
@@ -58,7 +58,7 @@ MemoryBlock& MemoryBlock::operator=(MemoryBlock&& other) noexcept {
     delete[] data;
 
     size = other.size;
-    refCount = 0;
+    refCount = other.refCount;
     data = other.data;
 
     other.size = 0;

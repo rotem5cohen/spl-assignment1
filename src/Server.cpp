@@ -73,7 +73,11 @@ Server::Server(std::string configPath)
       cycle(0),
       activeGpuIndices() {
 
+    try {    
+
     Config config = readConfig(configPath);
+    models.reserve(config.models.size());
+    nonSubmittedRequests.reserve(config.requests.size());
 
     for (const GPUConfig& gpuConfig : config.gpus) {
 
@@ -134,6 +138,11 @@ Server::Server(std::string configPath)
 
     } else {
         throw std::invalid_argument("Invalid scheduling policy");
+    }
+
+    } catch (...) {
+        clear();
+        throw;
     }
 }
 
@@ -251,64 +260,11 @@ Server& Server::operator=(const Server& other) {
         return *this;
     }
 
-    clear();
+    Server copy(other);
 
-    try {
-        gpus = other.gpus;
-        cycle = other.cycle;
-        activeGpuIndices = other.activeGpuIndices;
+    *this = std::move(copy);
 
-        models.reserve(other.models.size());
-
-        for (Model* model : other.models) {
-            models.push_back(new Model(*model));
-        }
-
-        nonSubmittedRequests.reserve(
-            other.nonSubmittedRequests.size()
-        );
-
-        for (Request* request : other.nonSubmittedRequests) {
-            nonSubmittedRequests.push_back(
-                request->clone(
-                    *findModel(request->getModel().getModelId())
-                )
-            );
-        }
-
-        waitingRequests.reserve(
-            other.waitingRequests.size()
-        );
-
-        for (Request* request : other.waitingRequests) {
-            waitingRequests.push_back(
-                request->clone(
-                    *findModel(request->getModel().getModelId())
-                )
-            );
-        }
-
-        activeRequests.reserve(
-            other.activeRequests.size()
-        );
-
-        for (Request* request : other.activeRequests) {
-            activeRequests.push_back(
-                request->clone(
-                    *findModel(request->getModel().getModelId())
-                )
-            );
-        }
-
-        if (other.policy != nullptr) {
-            policy = other.policy->clone();
-        }
-
-    } catch (...) {
-        clear();
-        throw;
-    }
-
+    return *this;
 }
 
 Server::Server(Server&& other) noexcept

@@ -1,5 +1,5 @@
 #ifndef SCHEDULING_POLICY_H_
-#define SCHEDULING_POLICY_H
+#define SCHEDULING_POLICY_H_
 #include <vector>
 class Request;
 class GPU;

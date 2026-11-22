@@ -1,0 +1,31 @@
+
+{
+  "block_size": 8,
+  "gpus": [
+    {"memory_bytes": 64}
+  ],
+  "models": [
+    {"id": "llama", "embedding_size": 4}
+  ],
+  "requests": [
+    {
+      "id": 1,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 0,
+      "prompt": "hello world",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    },
+    {
+      "id": 2,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 3,
+      "prompt": "hello world again",
+      "scripted_output": "nice",
+      "max_output_tokens": 1
+    }
+  ],
+  "scheduling_policy": "invalidPolicy"
+}

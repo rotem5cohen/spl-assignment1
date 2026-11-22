@@ -1,0 +1,22 @@
+
+{
+  "block_size": 8,
+  "gpus": [
+    {"memory_bytes": 64}
+  ],
+  "models": [
+    {"id": "llama", "embedding_size": 4}
+  ],
+"requests": [
+  {
+    "id": 1,
+    "type": "generative",
+    "model": "llama",
+    "cycle": 0,
+    "prompt": "",
+    "scripted_output": "",
+    "max_output_tokens": 0
+  }
+],
+  "scheduling_policy": "arrivalOrder"
+}

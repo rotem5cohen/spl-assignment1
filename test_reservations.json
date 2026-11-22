@@ -1,0 +1,50 @@
+
+{
+  "block_size": 8,
+  "gpus": [
+    {"memory_bytes": 56},
+    {"memory_bytes": 16}
+  ],
+  "models": [
+    {"id": "llama", "embedding_size": 4}
+  ],
+  "requests": [
+    {
+      "id": 1,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 0,
+      "prompt": "old cache",
+      "scripted_output": "",
+      "max_output_tokens": 2
+    },
+    {
+      "id": 2,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 0,
+      "prompt": "alpha beta gamma delta epsilon zeta eta theta",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    },
+    {
+      "id": 3,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 0,
+      "prompt": "red blue green yellow",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    },
+    {
+      "id": 4,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 4,
+      "prompt": "red blue green yellow extra",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    }
+  ],
+  "scheduling_policy": "arrivalOrder"
+}

@@ -2,6 +2,7 @@
 #include "MemoryBlock.h"
 #include "Request.h"
 #include <stdexcept>
+#include <utility>
 
 GPU::GPU(std::size_t blocksNum, std::size_t blockSize)
     : blocksNum(blocksNum),
@@ -319,38 +320,14 @@ GPU::GPU(const GPU& other)
 }
 
 GPU& GPU::operator=(const GPU& other) {
+
     if (this == &other) {
         return *this;
     }
 
-    for (std::size_t i = 0; i < blocksNum; i++) {
-        delete memory[i];
-        memory[i] = nullptr;
-    }
+    GPU copy(other);
 
-    memory.assign(other.blocksNum, nullptr);
-
-    blocksNum = other.blocksNum;
-    blockSize = other.blockSize;
-    totalReserved = other.totalReserved;
-    reservations = other.reservations;
-    cacheHits = other.cacheHits;
-    evictions = other.evictions;
-    modelIds = other.modelIds;
-    prefixKeys = other.prefixKeys;
-
-    for (std::size_t i = 0; i < blocksNum; i++) {
-        if (other.memory[i] != nullptr) {
-            memory[i] = other.memory[i]->clone();
-
-            for (int j = 0;
-                 j < other.memory[i]->getRefCount();
-                 j++) {
-
-                memory[i]->acquire();
-            }
-        }
-    }
+    *this = std::move(copy);
 
     return *this;
 }

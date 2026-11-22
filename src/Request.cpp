@@ -1,6 +1,7 @@
 #include "Request.h"
 #include "Model.h"
 #include "GPU.h"
+#include <memory>
 
 Request::Request(int id,
                  const Model& model,
@@ -179,13 +180,15 @@ std::string GenerativeRequest::getOutput() const {
 
 Request* GenerativeRequest::clone(const Model& model) const {
 
-    GenerativeRequest* copy = new GenerativeRequest(
-        id,
-        model,
-        admissionCycle,
-        "",
-        scriptedOutput,
-        maxOutputTokens
+    std::unique_ptr<GenerativeRequest> copy(
+        new GenerativeRequest(
+            id,
+            model,
+            admissionCycle,
+            "",
+            scriptedOutput,
+            maxOutputTokens
+        )
     );
 
     copy->tokens = tokens;
@@ -195,7 +198,7 @@ Request* GenerativeRequest::clone(const Model& model) const {
     copy->processedTokens = processedTokens;
     copy->generatedTokens = generatedTokens;
 
-    return copy;
+    return copy.release();
 }
 
 EmbeddingRequest::EmbeddingRequest(
@@ -315,11 +318,14 @@ std::string EmbeddingRequest::getOutput() const {
 }
 
 Request* EmbeddingRequest::clone(const Model& model) const {
-    EmbeddingRequest* copy = new EmbeddingRequest(
-        id,
-        model,
-        admissionCycle,
-        ""
+
+    std::unique_ptr<EmbeddingRequest> copy(
+        new EmbeddingRequest(
+            id,
+            model,
+            admissionCycle,
+            ""
+        )
     );
 
     copy->tokens = tokens;
@@ -328,5 +334,5 @@ Request* EmbeddingRequest::clone(const Model& model) const {
     copy->processedTokens = processedTokens;
     copy->output = output;
 
-    return copy;
+    return copy.release();
 }

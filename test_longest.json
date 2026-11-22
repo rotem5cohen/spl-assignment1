@@ -1,0 +1,40 @@
+
+{
+  "block_size": 8,
+  "gpus": [
+    {"memory_bytes": 16}
+  ],
+  "models": [
+    {"id": "llama", "embedding_size": 4}
+  ],
+  "requests": [
+    {
+      "id": 1,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 0,
+      "prompt": "alpha beta",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    },
+    {
+      "id": 2,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 2,
+      "prompt": "red blue green yellow",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    },
+    {
+      "id": 9,
+      "type": "generative",
+      "model": "llama",
+      "cycle": 2,
+      "prompt": "alpha beta gamma delta",
+      "scripted_output": "",
+      "max_output_tokens": 0
+    }
+  ],
+  "scheduling_policy": "longestPrefix"
+}
